@@ -11,7 +11,7 @@ RUN npm install
 COPY . .
 
 # Environment variables
-ENV NODE_ENV=development
+ENV NODE_ENV=production
 ENV PORT=8000
 
 EXPOSE 8000
