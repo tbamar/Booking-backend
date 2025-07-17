@@ -1,22 +1,18 @@
-# Stage 1: Base image with development dependencies
 FROM node:20-alpine AS development
 WORKDIR /app
 
-# Copy package files first for better caching
+# Copy only package files first for better caching
 COPY package*.json ./
-COPY .npmrc ./
 
-# Install all dependencies (including devDependencies)
+# Install dependencies (remove .npmrc copy)
 RUN npm install
 
-# Copy all files
+# Copy the rest of the application
 COPY . .
 
-# Environment variables for development
+# Environment variables
 ENV NODE_ENV=development
 ENV PORT=8000
 
-
-# Expose port and run dev server
 EXPOSE 8000
 CMD ["npm", "run", "dev"]
