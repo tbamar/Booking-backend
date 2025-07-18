@@ -1,4 +1,5 @@
 const WaitingList = require('../models/WaitingList');
+const BookingList = require('../models/Booking')
 
 exports.getWaitingList = async (req, res) => {
   try {
@@ -11,20 +12,18 @@ exports.getWaitingList = async (req, res) => {
 
 exports.countBySlot = async (req, res) => {
   try {
-    const { date, location, fromTime, toTime } = req.body;
+    const { date, chamber, time } = req.body;
 
-    if (!date || !location || !fromTime || !toTime) {
-      return res.status(400).json({ error: 'date, location, fromTime and toTime are required' });
+    if (!date || !chamber || !time) {
+      return res.status(400).json({ error: 'date, chamber and time are required' });
     }
-
     const count = await WaitingList.countDocuments({
       date: new Date(date),
-      location,
-      fromTime,
-      toTime
+      chamber,
+      time
     });
+    res.json({count});
 
-    res.json({ count });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

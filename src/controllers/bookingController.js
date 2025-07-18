@@ -4,21 +4,22 @@ const emailService = require("../services/emailService");
 
 exports.createBooking = async (req, res) => {
   try {
-    const { date, fromTime, toTime, name, location, email } = req.body;
+    const { date, time, name, address, chamber,phone, email, referredBy } = req.body;
     const existingBooking = await Booking.findOne({
       date,
-      fromTime,
-      toTime,
-      location,
+      time,
+      chamber
     });
     if (existingBooking) {
       const newWaitingListEntry = new WaitingList({
         date,
-        fromTime,
-        toTime,
+        time,
         name,
-        location,
         email,
+        chamber,
+        address,
+        phone,
+        referredBy,
         position: existingBooking.waitingList.length + 1,
       });
       existingBooking.waitingList.push(newWaitingListEntry);
@@ -34,11 +35,13 @@ exports.createBooking = async (req, res) => {
     }
     const newBooking = new Booking({
       date,
-      fromTime,
-      toTime,
+      time,
       name,
-      location,
+      chamber,
+      address,
       email,
+      referredBy,
+      phone
     });
     await newBooking.save();
     emailService.sendBookingConfirmationEmail(newBooking);
@@ -50,6 +53,29 @@ exports.createBooking = async (req, res) => {
 
 exports.cancelBooking = async (req, res) => {
   try {
+
+    //code to cancel booking from the waitlisted area
+    const targetId = req.params.id; 
+
+    const wlEntry = await WaitingList.findById(targetId);
+    if (wlEntry) {
+      
+      await WaitingList.findByIdAndDelete(targetId);
+
+      await WaitingList.updateMany(
+        { date: wlEntry.date, chamber: wlEntry.chamber, time: wlEntry.time, position: { $gt: wlEntry.position } },
+        { $inc: { position: -1 } }
+      );
+
+      await Booking.updateMany(
+        { waitingList: targetId },
+        { $pull: { waitingList: targetId } }
+      );
+
+      return res.json({ message: 'Waiting-list entry removed and positions shifted' });
+    }
+    
+
     const oldBooking = await Booking.findById(req.params.id).populate(
       "waitingList"
     );
@@ -62,11 +88,13 @@ exports.cancelBooking = async (req, res) => {
 
       const newBooking = new Booking({
         date: oldBooking.date,
-        fromTime: oldBooking.fromTime,
-        toTime: oldBooking.toTime,
-        location: oldBooking.location,
+        time:oldBooking.time,
+        address: oldBooking.address,
+        chamber:oldBooking.chamber,
+        referredBy:nextWL.referredBy,
         name: nextWL.name,
         email: nextWL.email,
+        phone:nextWL.phone,
         status: "confirmed",
         waitingList: oldBooking.waitingList, 
       });
