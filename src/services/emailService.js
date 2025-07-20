@@ -24,6 +24,7 @@ exports.sendBookingConfirmationEmail = async (booking) => {
     html: renderTemplate('bookingConfirmation', {
       chamber: booking.chamber,
       date: booking.date, 
+      time:booking.time,
       id: booking._id
     })
   };
