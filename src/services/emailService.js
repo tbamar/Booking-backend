@@ -1,6 +1,7 @@
 require('dotenv').config();
 const nodemailer = require('nodemailer');
 const { EMAIL_USER, EMAIL_PASS } = process.env;
+const { renderTemplate } = require('./email-templates/index');
 
 const transporter = nodemailer.createTransport({
   host: 'smtp.gmail.com',
@@ -20,7 +21,11 @@ exports.sendBookingConfirmationEmail = async (booking) => {
     from: EMAIL_USER,
     to: booking.email,
     subject: 'Booking Confirmation',
-    text: `Your booking for ${booking.date} at ${booking.location} is confirmed.`
+    html: renderTemplate('bookingConfirmation', {
+      chamber: booking.chamber,
+      date: booking.date, 
+      id: booking._id
+    })
   };
   await transporter.sendMail(mailOptions);
 };
@@ -30,7 +35,10 @@ exports.sendCancellationEmail = async (booking) => {
     from: EMAIL_USER,
     to: booking.email,
     subject: 'Booking Cancellation',
-    text: `Your booking for ${booking.date} at ${booking.location} has been cancelled.`
+    html: renderTemplate('bookingCancellation', {
+      location: booking.chamber,
+      date: booking.date, 
+    })
   };
   await transporter.sendMail(mailOptions);
 };
@@ -40,7 +48,12 @@ exports.sendWaitingListEmail = async (waitingListEntry) => {
     from: EMAIL_USER,
     to: waitingListEntry.email,
     subject: 'Waiting List Confirmation',
-    text: `You have been added to the waiting list for ${waitingListEntry.date} at ${waitingListEntry.location}. Your position is ${waitingListEntry.position}.`
+    html: renderTemplate('waitingList', {
+      location: waitingListEntry.chamber,
+      date: waitingListEntry.date,
+      position: waitingListEntry.position,
+      id: waitingListEntry._id
+    })
   };
   await transporter.sendMail(mailOptions);
 };
