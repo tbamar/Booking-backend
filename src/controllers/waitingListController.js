@@ -17,11 +17,18 @@ exports.countBySlot = async (req, res) => {
     if (!date || !chamber || !time) {
       return res.status(400).json({ error: 'date, chamber and time are required' });
     }
-    const count = await WaitingList.countDocuments({
+    let count = await WaitingList.countDocuments({
       date: new Date(date),
       chamber,
       time
     });
+
+    count+= await BookingList.countDocuments({
+      date: new Date(date),
+      chamber,
+      time
+    });
+
     res.json({count});
 
   } catch (err) {
