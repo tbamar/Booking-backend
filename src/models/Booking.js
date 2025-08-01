@@ -10,6 +10,7 @@ const bookingSchema = new mongoose.Schema({
   phone: { type: String, required: true },
   referredBy:{type:String},
   status: { type: String, enum: ['confirmed', 'cancelled'], default: 'confirmed' },
+  calenderId: {type:String},
   waitingList: [{ type: mongoose.Schema.Types.ObjectId, ref: 'WaitingList' }]
 });
 

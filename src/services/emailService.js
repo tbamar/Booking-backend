@@ -22,8 +22,9 @@ exports.sendBookingConfirmationEmail = async (booking) => {
     to: booking.email,
     subject: 'Booking Confirmation',
     html: renderTemplate('bookingConfirmation', {
+      name:booking.name,
       chamber: booking.chamber,
-      date: booking.date, 
+      date: booking.date.toLocaleDateString('sv-SE'), 
       time:booking.time,
       id: booking._id
     })
@@ -37,8 +38,9 @@ exports.sendCancellationEmail = async (booking) => {
     to: booking.email,
     subject: 'Booking Cancellation',
     html: renderTemplate('bookingCancellation', {
+      name:booking.name,
       location: booking.chamber,
-      date: booking.date, 
+      date: booking.date.toLocaleDateString('sv-SE'), 
     })
   };
   await transporter.sendMail(mailOptions);
@@ -50,8 +52,9 @@ exports.sendWaitingListEmail = async (waitingListEntry) => {
     to: waitingListEntry.email,
     subject: 'Waiting List Confirmation',
     html: renderTemplate('waitingList', {
+      name:waitingListEntry.name,
       location: waitingListEntry.chamber,
-      date: waitingListEntry.date,
+      date: waitingListEntry.date.toLocaleDateString('sv-SE'),
       position: waitingListEntry.position,
       id: waitingListEntry._id
     })

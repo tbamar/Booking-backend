@@ -1,108 +1,214 @@
 const Booking = require("../models/Booking");
 const WaitingList = require("../models/WaitingList");
 const emailService = require("../services/emailService");
+const { createCalendarEvent,cancelCalendarEvent } = require('../services/googleCalenderService');
 
+/* ---------- createBooking ---------- */
 exports.createBooking = async (req, res) => {
   try {
-    const { date, time, name, address, chamber,phone, email, referredBy } = req.body;
+    const { date, time, address, chamber, referredBy, name, email, phone } = req.body;
+
+    /* 1.  Check if the slot is already booked */
     const existingBooking = await Booking.findOne({
-      date,
+      date: new Date(date),
       time,
-      chamber
+      chamber,
     });
+
     if (existingBooking) {
-      const newWaitingListEntry = new WaitingList({
-        date,
+      /* --- WAIT-LIST branch (NO Google Calendar) --- */
+      const count = await WaitingList.countDocuments({
+        date: new Date(date),
         time,
+        chamber,
+      });
+      const newWL = new WaitingList({
+        date: new Date(date),
+        time,
+        address,
+        chamber,
+        referredBy,
         name,
         email,
-        chamber,
-        address,
         phone,
-        referredBy,
-        position: existingBooking.waitingList.length + 1,
+        position: count + 1,
       });
-      existingBooking.waitingList.push(newWaitingListEntry);
+      await newWL.save();
+      existingBooking.waitingList.push(newWL._id);
       await existingBooking.save();
-      await newWaitingListEntry.save();
-      emailService.sendWaitingListEmail(newWaitingListEntry);
-      return res
-        .status(201)
-        .json({
-          message: "Added to waiting list",
-          position: newWaitingListEntry.position,
-        });
+      emailService.sendWaitingListEmail(newWL);
+      return res.status(201).json({ message: 'Added to waiting list', position: newWL.position });
     }
-    const newBooking = new Booking({
+//add to google calender
+    const calenderId= await createCalendarEvent({
       date,
       time,
-      name,
       chamber,
-      address,
+      name,
       email,
+      phone,
       referredBy,
-      phone
     });
+
+    const newBooking = new Booking({
+      date: new Date(date),
+      time,
+      address,
+      chamber,
+      referredBy,
+      name,
+      email,
+      phone,
+      status: 'confirmed',
+      waitingList: [],
+      calenderId
+    });
+
     await newBooking.save();
     emailService.sendBookingConfirmationEmail(newBooking);
-    res.status(201).json({ message: "Booking created", booking: newBooking });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
+
+    res.status(201).json({ message: 'Booking confirmed', booking: newBooking });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 };
 
+// exports.createBooking = async (req, res) => {
+//   try {
+//     const { date, time, name, address, chamber,phone, email, referredBy } = req.body;
+//     const existingBooking = await Booking.findOne({
+//       date,
+//       time,
+//       chamber
+//     });
+//     if (existingBooking) {
+//       const newWaitingListEntry = new WaitingList({
+//         date,
+//         time,
+//         name,
+//         email,
+//         chamber,
+//         address,
+//         phone,
+//         referredBy,
+//         position: existingBooking.waitingList.length + 1,
+//       });
+//       existingBooking.waitingList.push(newWaitingListEntry);
+//       await existingBooking.save();
+//       await newWaitingListEntry.save();
+//       emailService.sendWaitingListEmail(newWaitingListEntry);
+//       return res
+//         .status(201)
+//         .json({
+//           message: "Added to waiting list",
+//           position: newWaitingListEntry.position,
+//         });
+//     }
+//     const newBooking = new Booking({
+//       date,
+//       time,
+//       name,
+//       chamber,
+//       address,
+//       email,
+//       referredBy,
+//       phone
+//     });
+//     await newBooking.save();
+//     emailService.sendBookingConfirmationEmail(newBooking);
+//     res.status(201).json({ message: "Booking created", booking: newBooking });
+//   } catch (error) {
+//     res.status(500).json({ error: error.message });
+//   }
+// };
+
+
 exports.cancelBooking = async (req, res) => {
   try {
+    const targetId = req.params.id;
+    const { email } = req.body;
 
-    //code to cancel booking from the waitlisted area
-    const targetId = req.params.id; 
+    // 0.  Email is mandatory
+    if (!email) {
+      return res.status(400).json({ message: 'Email is required' });
+    }
 
+    /* -------------------------------------------------
+       1.  CASE 1 – cancelling a waiting-list entry
+    ------------------------------------------------- */
     const wlEntry = await WaitingList.findById(targetId);
     if (wlEntry) {
-      
+      if (wlEntry.email !== email) {
+        return res.status(403).json({ message: 'Email does not match' });
+      }
+
+      // remove the waiting-list row
       await WaitingList.findByIdAndDelete(targetId);
 
+      // shift remaining positions down by 1
       await WaitingList.updateMany(
         { date: wlEntry.date, chamber: wlEntry.chamber, time: wlEntry.time, position: { $gt: wlEntry.position } },
         { $inc: { position: -1 } }
       );
 
+      // also pull the id from every Booking.waitingList array
       await Booking.updateMany(
         { waitingList: targetId },
         { $pull: { waitingList: targetId } }
       );
-
+      emailService.sendCancellationEmail(wlEntry);
       return res.json({ message: 'Waiting-list entry removed and positions shifted' });
     }
-    
 
-    const oldBooking = await Booking.findById(req.params.id).populate(
-      "waitingList"
-    );
-    if (!oldBooking)
-      return res.status(404).json({ message: "Booking not found" });
+    /* -------------------------------------------------
+       2.  CASE 2 – cancelling a confirmed booking
+    ------------------------------------------------- */
+    const oldBooking = await Booking.findById(targetId).populate('waitingList');
+    if (!oldBooking) {
+      return res.status(404).json({ message: 'Booking not found' });
+    }
+
+    if (oldBooking.email !== email) {
+      return res.status(403).json({ message: 'Email does not match' });
+    }
 
     if (oldBooking.waitingList.length > 0) {
-      
-      const nextWL = oldBooking.waitingList.shift(); 
-
+      const nextWL = oldBooking.waitingList.shift(); // full document
+      await WaitingList.findByIdAndDelete(nextWL._id);
       const newBooking = new Booking({
+        _id: nextWL._id, // reuse the same ID
         date: oldBooking.date,
-        time:oldBooking.time,
+        time: oldBooking.time,
         address: oldBooking.address,
-        chamber:oldBooking.chamber,
-        referredBy:nextWL.referredBy,
+        chamber: oldBooking.chamber,
+        referredBy: nextWL.referredBy,
         name: nextWL.name,
         email: nextWL.email,
-        phone:nextWL.phone,
-        status: "confirmed",
-        waitingList: oldBooking.waitingList, 
+        phone: nextWL.phone,
+        status: 'confirmed',
+        waitingList: oldBooking.waitingList,
       });
+  
+      //cancel from the google calender
+      if(oldBooking.calenderId)
+      await cancelCalendarEvent(oldBooking.calenderId);
+      //make new event in google calender
+      const calenderId= await createCalendarEvent({
+        date:oldBooking.date.toLocaleDateString('sv-SE'),
+        time:oldBooking.time,
+        chamber:oldBooking.chamber,
+        name:nextWL.name,
+        email:nextWL.email,
+        phone:nextWL.phone,
+        referredBy:nextWL.referredBy,
+      });
+      newBooking.calenderId = calenderId;
+      await newBooking.save();
 
-      await newBooking.save();  
+      // delete promoted waiting-list row
+     // await WaitingList.findByIdAndDelete(nextWL._id);
 
-      //deleting the 1st waitlist and shifiting the other in the left by 1 position
-      await WaitingList.findByIdAndDelete(nextWL._id);
+      // renumber remaining waiting-list positions
       await WaitingList.updateMany(
         { _id: { $in: newBooking.waitingList } },
         { $inc: { position: -1 } }
@@ -110,19 +216,21 @@ exports.cancelBooking = async (req, res) => {
 
       emailService.sendBookingConfirmationEmail(newBooking);
       emailService.sendCancellationEmail(oldBooking);
-
-      //deleteing the confirmed booking from DB
       await Booking.findByIdAndDelete(req.params.id);
 
-      return res.json({
-        message: "Booking cancelled; next promoted, waiting list preserved",
-      });
+      return res.json({ message: 'Booking cancelled; next promoted, waiting list preserved' });
+    }
+
+    // no one in queue – simply delete and cancel from google calender
+    if (oldBooking.calenderId) {
+      await cancelCalendarEvent(oldBooking.calenderId);
     }
 
     emailService.sendCancellationEmail(oldBooking);
     await Booking.findByIdAndDelete(req.params.id);
-    res.json({ message: "Booking cancelled; slot now empty" });
+    res.json({ message: 'Booking cancelled; slot now empty' });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 };
+
