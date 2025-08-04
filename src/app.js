@@ -10,10 +10,10 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(cors({
-  origin: ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:5173', 'http://127.0.0.1:5173', 'https://www.32maxillofacial.com/','https://www.32maxillofacial.com/book-appointment', 'https://dentist-theta-six.vercel.app/'], 
+  origin: "*", // Allow all origins
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
-  credentials: true
+  credentials: false // Must be false if origin is "*"
 }));
 
 // Handle preflight requests explicitly
