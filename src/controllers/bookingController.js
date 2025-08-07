@@ -19,7 +19,7 @@ exports.searchBooking = async(req,res)=>{
         return res.status(200).json({message: 'Booking found', booking: existingBooking});
       }
       else{
-        return res.status(404).json({message:'No booking with this name and email'});
+        return res.status(201).json({message:'No booking with this name and email', booking:[]});
       }
     
   }
