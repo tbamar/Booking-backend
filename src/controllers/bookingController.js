@@ -3,10 +3,55 @@ const WaitingList = require("../models/WaitingList");
 const emailService = require("../services/emailService");
 const { createCalendarEvent,cancelCalendarEvent } = require('../services/googleCalenderService');
 
+/*-----------searchBooking------------*/
+exports.searchBooking = async(req,res)=>{
+  try{
+    const{name, email} = req.body;
+ //considering the booking which are about to come , ignoring the ones of the past so to maintain history
+    const existingBooking = await Booking.findOne({
+      name: new RegExp(name, 'i'), 
+      email: new RegExp(email, 'i'),
+      date: { $gte: new Date() } ,
+    })
+    const date = new Date();
+    
+      if(existingBooking){
+        return res.status(200).json({message: 'Booking found', booking: existingBooking});
+      }
+      else{
+        return res.status(404).json({message:'No booking with this name and email'});
+      }
+    
+  }
+  catch(err){
+    res.status(500).json({error:err.message});
+  }
+}
+
 /* ---------- createBooking ---------- */
 exports.createBooking = async (req, res) => {
   try {
     const { date, time, address, chamber, referredBy, name, email, phone } = req.body;
+
+    /* 0.  Cancel booking with same name and email */
+
+    const existingBooing = await Booking.findOne({
+      name: new RegExp(name, 'i'), 
+      email: new RegExp(email, 'i'),
+      date: { $gte: new Date() } 
+    })
+
+    if (existingBooing ) {
+      const mockReq = {
+        params: { id: existingBooing._id },
+        body: { email: existingBooing.email },
+      };
+      const mockRes = {
+        json: (obj) => console.log(obj),
+        status: (code) => ({ json: (obj) => console.log(code, obj) }),
+      };
+      await this.cancelBooking(mockReq, mockRes);
+    }
 
     /* 1.  Check if the slot is already booked */
     const existingBooking = await Booking.findOne({
@@ -72,55 +117,6 @@ exports.createBooking = async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 };
-
-// exports.createBooking = async (req, res) => {
-//   try {
-//     const { date, time, name, address, chamber,phone, email, referredBy } = req.body;
-//     const existingBooking = await Booking.findOne({
-//       date,
-//       time,
-//       chamber
-//     });
-//     if (existingBooking) {
-//       const newWaitingListEntry = new WaitingList({
-//         date,
-//         time,
-//         name,
-//         email,
-//         chamber,
-//         address,
-//         phone,
-//         referredBy,
-//         position: existingBooking.waitingList.length + 1,
-//       });
-//       existingBooking.waitingList.push(newWaitingListEntry);
-//       await existingBooking.save();
-//       await newWaitingListEntry.save();
-//       emailService.sendWaitingListEmail(newWaitingListEntry);
-//       return res
-//         .status(201)
-//         .json({
-//           message: "Added to waiting list",
-//           position: newWaitingListEntry.position,
-//         });
-//     }
-//     const newBooking = new Booking({
-//       date,
-//       time,
-//       name,
-//       chamber,
-//       address,
-//       email,
-//       referredBy,
-//       phone
-//     });
-//     await newBooking.save();
-//     emailService.sendBookingConfirmationEmail(newBooking);
-//     res.status(201).json({ message: "Booking created", booking: newBooking });
-//   } catch (error) {
-//     res.status(500).json({ error: error.message });
-//   }
-// };
 
 
 exports.cancelBooking = async (req, res) => {
