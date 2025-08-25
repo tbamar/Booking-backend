@@ -5,6 +5,8 @@ const cors    = require('cors');
 const bookingRoutes = require('./routes/bookingRoutes');
 const waitingListRoutes = require('./routes/waitingListRoutes');
 
+const cron = require('../src/jobs/reminderCron'); 
+
 const app = express();
 
 const PORT = process.env.PORT || 3000;

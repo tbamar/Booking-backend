@@ -61,3 +61,22 @@ exports.sendWaitingListEmail = async (waitingListEntry) => {
   };
   await transporter.sendMail(mailOptions);
 };
+
+exports.sendReminder = async (booking) => {
+  const cancelUrl = `http://localhost:8000/api/bookings/${booking._id}/cancel/email?token=${booking.cancelToken}&email=${encodeURIComponent(booking.email)}`;
+
+  const mailOptions = {
+    from: EMAIL_USER,
+    to: booking.email,
+    subject: 'Appointment Reminder',
+    html: renderTemplate('reminderMail', {
+      name:booking.name,
+      chamber: booking.chamber,
+      date: booking.date.toLocaleDateString('sv-SE'),
+      time: booking.time,
+      cancelLink:cancelUrl
+    })
+  };
+
+  await transporter.sendMail(mailOptions);
+};

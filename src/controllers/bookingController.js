@@ -53,7 +53,7 @@ exports.createBooking = async (req, res) => {
       await this.cancelBooking(mockReq, mockRes);
     }
 
-    /* 1.  Check if the slot is already booked */
+    //  Check if the slot is already booked /
     const existingBooking = await Booking.findOne({
       date: new Date(date),
       time,
@@ -201,9 +201,6 @@ exports.cancelBooking = async (req, res) => {
       newBooking.calenderId = calenderId;
       await newBooking.save();
 
-      // delete promoted waiting-list row
-     // await WaitingList.findByIdAndDelete(nextWL._id);
-
       // renumber remaining waiting-list positions
       await WaitingList.updateMany(
         { _id: { $in: newBooking.waitingList } },
@@ -229,4 +226,13 @@ exports.cancelBooking = async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 };
+
+exports.cancelBookingFromEmail = async (req,res)=>{
+  const { token, email } = req.query;
+  const booking = await Booking.findById(req.params.id);
+  if (!booking || booking.cancelToken !== token) return res.status(403).json({ message: 'Invalid link' });
+  req.params.id = booking._id.toString();
+  req.body = { email };
+  return this.cancelBooking(req, res);
+}
 
