@@ -1,44 +1,49 @@
 const Booking = require("../models/Booking");
 const WaitingList = require("../models/WaitingList");
 const emailService = require("../services/emailService");
-const { createCalendarEvent,cancelCalendarEvent } = require('../services/googleCalenderService');
+const Razorpay = require('razorpay');
+const {
+  createCalendarEvent,
+  cancelCalendarEvent,
+} = require("../services/googleCalenderService");
 
 /*-----------searchBooking------------*/
-exports.searchBooking = async(req,res)=>{
-  try{
-    const{name, email} = req.body;
- //considering the booking which are about to come , ignoring the ones of the past so to maintain history
+exports.searchBooking = async (req, res) => {
+  try {
+    const { name, email } = req.body;
+    //considering the booking which are about to come , ignoring the ones of the past so to maintain history
     const existingBooking = await Booking.findOne({
-      name: new RegExp(name, 'i'), 
-      email: new RegExp(email, 'i'),
-      date: { $gte: new Date() } ,
-    })
+      name: new RegExp(name, "i"),
+      email: new RegExp(email, "i"),
+      date: { $gte: new Date() },
+    });
     const date = new Date();
-    
-      if(existingBooking){
-        return res.status(200).json({message: 'Booking found', booking: existingBooking});
-      }
-      else{
-        return res.status(201).json({message:'No booking with this name and email', booking:[]});
-      }
-    
+
+    if (existingBooking) {
+      return res
+        .status(200)
+        .json({ message: "Booking found", booking: existingBooking });
+    } else {
+      return res
+        .status(201)
+        .json({ message: "No booking with this name and email", booking: [] });
+    }
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
-  catch(err){
-    res.status(500).json({error:err.message});
-  }
-}
+};
 
 /* ---------- createBooking ---------- */
-exports.createBooking = async (req, res) => {
+exports.createBookingOld = async (req, res) => {
   try {
     const { date, time, address, chamber, referredBy, name, email, phone } = req.body;
 
     /* 0.  Cancel booking with same name and email */
 
     const existingBooing = await Booking.findOne({
-      name: new RegExp(name, 'i'), 
+      name: new RegExp(name, 'i'),
       email: new RegExp(email, 'i'),
-      date: { $gte: new Date() } 
+      date: { $gte: new Date() }
     })
 
     if (existingBooing ) {
@@ -118,6 +123,103 @@ exports.createBooking = async (req, res) => {
   }
 };
 
+//new create booking with Razorpay integration
+
+exports.createBooking = async (req, res) => {
+  try {
+    const { date, time, address, chamber, referredBy, name, email, phone } =
+      req.body;
+
+    const existingBooing = await Booking.findOne({
+      name: new RegExp(name, "i"),
+      email: new RegExp(email, "i"),
+      date: { $gte: new Date() },
+    });
+
+    if (existingBooing) {
+      const mockReq = {
+        params: { id: existingBooing._id },
+        body: { email: existingBooing.email },
+      };
+      const mockRes = {
+        json: (obj) => console.log(obj),
+        status: (code) => ({ json: (obj) => console.log(code, obj) }),
+      };
+      await this.cancelBooking(mockReq, mockRes);
+    }
+
+    // Check if slot already booked
+    const existingBooking = await Booking.findOne({
+      date: new Date(date),
+      time,
+      chamber,
+    });
+
+    if (existingBooking) {
+      // Waiting list logic (unchanged)
+      const count = await WaitingList.countDocuments({
+        date: new Date(date),
+        time,
+        chamber,
+      });
+      const newWL = new WaitingList({
+        date: new Date(date),
+        time,
+        address,
+        chamber,
+        referredBy,
+        name,
+        email,
+        phone,
+        position: count + 1,
+      });
+      await newWL.save();
+      existingBooking.waitingList.push(newWL._id);
+      await existingBooking.save();
+      emailService.sendWaitingListEmail(newWL);
+      return res
+        .status(201)
+        .json({ message: "Added to waiting list", position: newWL.position });
+    }
+
+    /** 🔹 Step 1: Create Razorpay Order */
+    const razorpay = new Razorpay({
+      key_id: process.env.RAZORPAY_ID,
+      key_secret: process.env.RAZORPAY_SECRET,
+    });
+
+    const order = await razorpay.orders.create({
+      amount: 5000,
+      currency: "INR",
+      receipt: `receipt_${Date.now()}`,
+    });
+
+    /** 🔹 Step 2: Save booking with Pending Status */
+    const newBooking = new Booking({
+      date: new Date(date),
+      time,
+      address,
+      chamber,
+      referredBy,
+      name,
+      email,
+      phone,
+      status: "pending", // waiting for payment
+      paymentStatus: "Pending",
+      razorpayOrderId: order.id,
+    });
+
+    await newBooking.save();
+
+    res.status(201).json({
+      message: "Booking initiated, waiting for payment",
+      orderId: order.id,
+      bookingId: newBooking._id,
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
 
 exports.cancelBooking = async (req, res) => {
   try {
@@ -126,7 +228,7 @@ exports.cancelBooking = async (req, res) => {
 
     // 0.  Email is mandatory
     if (!email) {
-      return res.status(400).json({ message: 'Email is required' });
+      return res.status(400).json({ message: "Email is required" });
     }
 
     /* -------------------------------------------------
@@ -135,7 +237,7 @@ exports.cancelBooking = async (req, res) => {
     const wlEntry = await WaitingList.findById(targetId);
     if (wlEntry) {
       if (wlEntry.email !== email) {
-        return res.status(403).json({ message: 'Email does not match' });
+        return res.status(403).json({ message: "Email does not match" });
       }
 
       // remove the waiting-list row
@@ -143,7 +245,12 @@ exports.cancelBooking = async (req, res) => {
 
       // shift remaining positions down by 1
       await WaitingList.updateMany(
-        { date: wlEntry.date, chamber: wlEntry.chamber, time: wlEntry.time, position: { $gt: wlEntry.position } },
+        {
+          date: wlEntry.date,
+          chamber: wlEntry.chamber,
+          time: wlEntry.time,
+          position: { $gt: wlEntry.position },
+        },
         { $inc: { position: -1 } }
       );
 
@@ -153,19 +260,21 @@ exports.cancelBooking = async (req, res) => {
         { $pull: { waitingList: targetId } }
       );
       emailService.sendCancellationEmail(wlEntry);
-      return res.json({ message: 'Waiting-list entry removed and positions shifted' });
+      return res.json({
+        message: "Waiting-list entry removed and positions shifted",
+      });
     }
 
     /* -------------------------------------------------
        2.  CASE 2 – cancelling a confirmed booking
     ------------------------------------------------- */
-    const oldBooking = await Booking.findById(targetId).populate('waitingList');
+    const oldBooking = await Booking.findById(targetId).populate("waitingList");
     if (!oldBooking) {
-      return res.status(404).json({ message: 'Booking not found' });
+      return res.status(404).json({ message: "Booking not found" });
     }
 
     if (oldBooking.email !== email) {
-      return res.status(403).json({ message: 'Email does not match' });
+      return res.status(403).json({ message: "Email does not match" });
     }
 
     if (oldBooking.waitingList.length > 0) {
@@ -181,22 +290,22 @@ exports.cancelBooking = async (req, res) => {
         name: nextWL.name,
         email: nextWL.email,
         phone: nextWL.phone,
-        status: 'confirmed',
+        status: "confirmed",
         waitingList: oldBooking.waitingList,
       });
-  
+
       //cancel from the google calender
-      if(oldBooking.calenderId)
-      await cancelCalendarEvent(oldBooking.calenderId);
+      if (oldBooking.calenderId)
+        await cancelCalendarEvent(oldBooking.calenderId);
       //make new event in google calender
-      const calenderId= await createCalendarEvent({
-        date:oldBooking.date.toLocaleDateString('sv-SE'),
-        time:oldBooking.time,
-        chamber:oldBooking.chamber,
-        name:nextWL.name,
-        email:nextWL.email,
-        phone:nextWL.phone,
-        referredBy:nextWL.referredBy,
+      const calenderId = await createCalendarEvent({
+        date: oldBooking.date.toLocaleDateString("sv-SE"),
+        time: oldBooking.time,
+        chamber: oldBooking.chamber,
+        name: nextWL.name,
+        email: nextWL.email,
+        phone: nextWL.phone,
+        referredBy: nextWL.referredBy,
       });
       newBooking.calenderId = calenderId;
       await newBooking.save();
@@ -211,7 +320,9 @@ exports.cancelBooking = async (req, res) => {
       emailService.sendCancellationEmail(oldBooking);
       await Booking.findByIdAndDelete(req.params.id);
 
-      return res.json({ message: 'Booking cancelled; next promoted, waiting list preserved' });
+      return res.json({
+        message: "Booking cancelled; next promoted, waiting list preserved",
+      });
     }
 
     // no one in queue – simply delete and cancel from google calender
@@ -221,18 +332,18 @@ exports.cancelBooking = async (req, res) => {
 
     emailService.sendCancellationEmail(oldBooking);
     await Booking.findByIdAndDelete(req.params.id);
-    res.json({ message: 'Booking cancelled; slot now empty' });
+    res.json({ message: "Booking cancelled; slot now empty" });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 };
 
-exports.cancelBookingFromEmail = async (req,res)=>{
+exports.cancelBookingFromEmail = async (req, res) => {
   const { token, email } = req.query;
   const booking = await Booking.findById(req.params.id);
-  if (!booking || booking.cancelToken !== token) return res.status(403).json({ message: 'Invalid link' });
+  if (!booking || booking.cancelToken !== token)
+    return res.status(403).json({ message: "Invalid link" });
   req.params.id = booking._id.toString();
   req.body = { email };
   return this.cancelBooking(req, res);
-}
-
+};
