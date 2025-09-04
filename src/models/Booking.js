@@ -12,8 +12,8 @@ const bookingSchema = new mongoose.Schema({
   referredBy: { type: String },
   status: {
     type: String,
-    enum: ["confirmed", "cancelled"],
-    default: "confirmed",
+    enum: ["confirmed", "cancelled", "pending"],
+    default: "pending",
   },
   calenderId: { type: String },
   cancelToken: {
@@ -22,6 +22,10 @@ const bookingSchema = new mongoose.Schema({
   },
   reminderSent: { type: Boolean, default: false },
   waitingList: [{ type: mongoose.Schema.Types.ObjectId, ref: "WaitingList" }],
+  razorpayOrderId:{type:String, default : null},
+  paymentStatus:{type: String,
+    enum: ["Pending", "Success"],
+    default: null,}
 });
 
 module.exports = mongoose.model("Booking", bookingSchema);

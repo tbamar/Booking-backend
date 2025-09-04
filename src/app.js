@@ -4,6 +4,7 @@ const mongoose = require('mongoose');
 const cors    = require('cors');
 const bookingRoutes = require('./routes/bookingRoutes');
 const waitingListRoutes = require('./routes/waitingListRoutes');
+const paymentRoutes = require ('./routes/paymentRoutes')
 
 const cron = require('../src/jobs/reminderCron'); 
 
@@ -29,5 +30,6 @@ mongoose.connect(process.env.MONGO_URI, { useNewUrlParser: true, useUnifiedTopol
 
 app.use('/api/bookings', bookingRoutes);
 app.use('/api/waitinglist', waitingListRoutes);
+app.use('/api/payment',paymentRoutes);
 
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
