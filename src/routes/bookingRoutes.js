@@ -4,6 +4,7 @@ const bookingController = require('../controllers/bookingController');
 const router = express.Router();
 
 router.post('/', bookingController.createBooking);
+router.post('/old',bookingController.createBookingOld);
 router.post('/search',bookingController.searchBooking);
 router.delete('/:id/cancel', bookingController.cancelBooking);
 router.get('/:id/cancel/email', bookingController.cancelBookingFromEmail);
