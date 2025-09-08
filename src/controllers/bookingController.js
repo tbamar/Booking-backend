@@ -387,8 +387,8 @@ exports.cancelBooking = async (req, res) => {
           },
           {
             auth: {
-              username: process.env.RAZORPAY_KEY_ID,
-              password: process.env.RAZORPAY_KEY_SECRET,
+              username: process.env.RAZORPAY_ID,
+              password: process.env.RAZORPAY_SECRET,
             },
             headers: {
               "Content-Type": "application/json",
