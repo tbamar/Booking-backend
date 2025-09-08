@@ -619,7 +619,7 @@ exports.cancelBooking = async (req, res) => {
 
 exports.cancelOnClose = async (req, res) => {
   try {
-    const { id } = req.params;
+    const { id } = req.body;
 
     let booking = await Booking.findByIdAndDelete(id);
     if (booking) {
