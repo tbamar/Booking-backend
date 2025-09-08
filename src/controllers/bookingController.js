@@ -198,7 +198,7 @@ exports.createBooking = async (req, res) => {
         message: "Added to waiting list",
         position: newWL.position,
         orderId: order.id,
-        bookingId: newBooking._id,
+        bookingId: newWL._id,
       });
     }
 
