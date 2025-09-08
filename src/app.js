@@ -7,6 +7,7 @@ const waitingListRoutes = require('./routes/waitingListRoutes');
 const paymentRoutes = require ('./routes/paymentRoutes')
 
 const cron = require('../src/jobs/reminderCron'); 
+const refundCron = require ("../src/jobs/refundWaitlisted");
 
 const app = express();
 

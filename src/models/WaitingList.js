@@ -9,7 +9,17 @@ const waitingListSchema = new mongoose.Schema({
   email: { type: String, required: true },
   phone: { type: String, required: true },
   referredBy:{type:String},
-  position: { type: Number, required: true }
+  position: { type: Number, required: true },
+  status: {
+    type: String,
+    enum: ["confirmed", "cancelled", "pending"],
+    default: "pending",
+  },
+  razorpayOrderId:{type:String, default : "N/A"},
+  paymentId:{type:String, default : "N/A"},
+  paymentStatus:{type: String,
+    enum: ["Pending", "Success", "Refunded"],
+    default: "N/A"}
 });
 
 module.exports = mongoose.model('WaitingList', waitingListSchema);

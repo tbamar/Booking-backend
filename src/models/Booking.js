@@ -23,8 +23,9 @@ const bookingSchema = new mongoose.Schema({
   reminderSent: { type: Boolean, default: false },
   waitingList: [{ type: mongoose.Schema.Types.ObjectId, ref: "WaitingList" }],
   razorpayOrderId:{type:String, default : null},
+  paymentId:{type:String, default : null},
   paymentStatus:{type: String,
-    enum: ["Pending", "Success"],
+    enum: ["Pending", "Success","Refunded"],
     default: null,}
 });
 
