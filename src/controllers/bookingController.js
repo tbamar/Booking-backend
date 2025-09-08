@@ -8,6 +8,9 @@ const {
   cancelCalendarEvent,
 } = require("../services/googleCalenderService");
 
+const razorpayId = process.env.RAZORPAY_ID;
+const razorpaySecret = process.env.RAZORPAY_SECRET;
+
 exports.searchBooking = async (req, res) => {
   try {
     const { name, email } = req.body;
@@ -387,8 +390,8 @@ exports.cancelBooking = async (req, res) => {
           },
           {
             auth: {
-              username: process.env.RAZORPAY_ID,
-              password: process.env.RAZORPAY_SECRET,
+              username: razorpayId,
+              password: razorpaySecret,
             },
             headers: {
               "Content-Type": "application/json",
