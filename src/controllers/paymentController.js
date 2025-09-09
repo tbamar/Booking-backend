@@ -93,7 +93,7 @@ exports.verifyPayment = async (req, res) => {
         { new: true }
       );
       await booking.save();
-      emailService.sendWaitingListEmail(booking);
+      await emailService.sendWaitingListEmail(booking);
 
       res.status(200).json({
         message: "Payment verified & waitlisted booking given",
@@ -131,7 +131,7 @@ exports.verifyPayment = async (req, res) => {
     await booking.save();
 
     //sending confirmation mail
-    emailService.sendBookingConfirmationEmail(booking);
+    await emailService.sendBookingConfirmationEmail(booking);
 
     res
       .status(200)

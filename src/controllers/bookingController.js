@@ -90,7 +90,7 @@ exports.createBookingOld = async (req, res) => {
       await newWL.save();
       existingBooking.waitingList.push(newWL._id);
       await existingBooking.save();
-      emailService.sendWaitingListEmail(newWL);
+      await emailService.sendWaitingListEmail(newWL);
       return res
         .status(201)
         .json({ message: "Added to waiting list", position: newWL.position });
@@ -121,7 +121,7 @@ exports.createBookingOld = async (req, res) => {
     });
 
     await newBooking.save();
-    emailService.sendBookingConfirmationEmail(newBooking);
+    await emailService.sendBookingConfirmationEmail(newBooking);
 
     res.status(201).json({ message: "Booking confirmed", booking: newBooking });
   } catch (err) {
@@ -271,7 +271,7 @@ exports.cancelBookingOld = async (req, res) => {
         { waitingList: targetId },
         { $pull: { waitingList: targetId } }
       );
-      emailService.sendCancellationEmail(wlEntry);
+      await emailService.sendCancellationEmail(wlEntry);
       return res.json({
         message: "Waiting-list entry removed and positions shifted",
       });
@@ -328,8 +328,8 @@ exports.cancelBookingOld = async (req, res) => {
         { $inc: { position: -1 } }
       );
 
-      emailService.sendBookingConfirmationEmail(newBooking);
-      emailService.sendCancellationEmail(oldBooking);
+      await emailService.sendBookingConfirmationEmail(newBooking);
+      await emailService.sendCancellationEmail(oldBooking);
       await Booking.findByIdAndDelete(req.params.id);
 
       return res.json({
@@ -342,7 +342,7 @@ exports.cancelBookingOld = async (req, res) => {
       await cancelCalendarEvent(oldBooking.calenderId);
     }
 
-    emailService.sendCancellationEmail(oldBooking);
+    await emailService.sendCancellationEmail(oldBooking);
     await Booking.findByIdAndDelete(req.params.id);
     res.json({ message: "Booking cancelled; slot now empty" });
   } catch (err) {
@@ -466,7 +466,7 @@ exports.cancelBooking = async (req, res) => {
         { $pull: { waitingList: targetId } }
       );
 
-      emailService.sendCancellationEmail(wlEntry);
+      await emailService.sendCancellationEmail(wlEntry);
 
       const response = {
         message: "Waiting-list entry removed and positions shifted",
@@ -568,8 +568,8 @@ exports.cancelBooking = async (req, res) => {
         { $inc: { position: -1 } }
       );
 
-      emailService.sendBookingConfirmationEmail(newBooking);
-      emailService.sendCancellationEmail(oldBooking);
+      await emailService.sendBookingConfirmationEmail(newBooking);
+      await emailService.sendCancellationEmail(oldBooking);
       await Booking.findByIdAndDelete(req.params.id);
 
       const response = {
@@ -596,7 +596,7 @@ exports.cancelBooking = async (req, res) => {
       await cancelCalendarEvent(oldBooking.calenderId);
     }
 
-    emailService.sendCancellationEmail(oldBooking);
+    await emailService.sendCancellationEmail(oldBooking);
     await Booking.findByIdAndDelete(req.params.id);
 
     const response = {
