@@ -7,6 +7,7 @@ const waitingListRoutes = require('./routes/waitingListRoutes');
 const paymentRoutes = require ('./routes/paymentRoutes')
 
 const cron = require('../src/jobs/reminderCron'); 
+const refundCron = require ("../src/jobs/refundWaitlisted");
 
 const app = express();
 
@@ -24,9 +25,13 @@ app.options('*', cors());
 
 app.use(express.json());
 
-mongoose.connect(process.env.MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true })
+async function connectionDB(){
+ await mongoose.connect(process.env.MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true })
   .then(() => console.log('MongoDB connected'))
   .catch(err => console.log(err));
+}
+
+connectionDB();
 
 app.use('/api/bookings', bookingRoutes);
 app.use('/api/waitinglist', waitingListRoutes);

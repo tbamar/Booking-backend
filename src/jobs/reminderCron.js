@@ -2,7 +2,7 @@ const cron = require("node-cron");
 const Booking = require("../models/Booking");
 const { sendReminder } = require("../services/emailService");
 
-cron.schedule("* * * * *", async () => {
+cron.schedule("0 * * * *", async () => {
   const now = new Date();
   const twelveHoursLater = new Date(now.getTime() + 12 * 60 * 60 * 1000);
 
