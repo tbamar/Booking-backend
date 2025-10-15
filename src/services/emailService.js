@@ -17,6 +17,7 @@ const transporter = nodemailer.createTransport({
 });
 
 exports.sendBookingConfirmationEmail = async (booking) => {
+  const cancelUrl = `${process.env.BACKEND_URL}bookings/${booking._id}/cancel/email?token=${booking.cancelToken}&email=${encodeURIComponent(booking.email)}`;
   const mailOptions = {
     from: EMAIL_USER,
     to: booking.email,
@@ -26,7 +27,9 @@ exports.sendBookingConfirmationEmail = async (booking) => {
       chamber: booking.chamber,
       date: booking.date.toLocaleDateString('sv-SE'), 
       time:booking.time,
-      id: booking._id
+      id: booking._id,
+      cancelLink:cancelUrl,
+      location:booking.chamber=="College Square Branch"?"https://maps.app.goo.gl/9rTaa7i9Ki5p2JSC8":"https://maps.app.goo.gl/Y9SA8WUGJUt9ZwqZ6?g_st=awb"
     })
   };
   await transporter.sendMail(mailOptions);
@@ -65,7 +68,7 @@ exports.sendWaitingListEmail = async (waitingListEntry) => {
 };
 
 exports.sendReminder = async (booking) => {
-  const cancelUrl = `http://localhost:8000/api/bookings/${booking._id}/cancel/email?token=${booking.cancelToken}&email=${encodeURIComponent(booking.email)}`;
+  const cancelUrl = `${process.env.BACKEND_URL}bookings/${booking._id}/cancel/email?token=${booking.cancelToken}&email=${encodeURIComponent(booking.email)}`;
 
   const mailOptions = {
     from: EMAIL_USER,

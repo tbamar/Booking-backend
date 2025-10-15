@@ -16,7 +16,7 @@ exports.searchBooking = async (req, res) => {
     const { name, email } = req.body;
     //considering the booking which are about to come , ignoring the ones of the past so to maintain history
     const existingBooking = await Booking.findOne({
-      name: new RegExp(name, "i"),
+      phone: new RegExp(name, "i"),
       email: new RegExp(email, "i"),
       date: { $gte: new Date() },
     });
@@ -45,7 +45,7 @@ exports.createBookingOld = async (req, res) => {
     // Cancel booking with same name and email
 
     const existingBooing = await Booking.findOne({
-      name: new RegExp(name, "i"),
+      phone: new RegExp(name, "i"),
       email: new RegExp(email, "i"),
       date: { $gte: new Date() },
     });
@@ -137,7 +137,7 @@ exports.createBooking = async (req, res) => {
       req.body;
 
     const existingBooing = await Booking.findOne({
-      name: new RegExp(name, "i"),
+      phone: new RegExp(name, "i"),
       email: new RegExp(email, "i"),
       date: { $gte: new Date() },
     });

@@ -25,8 +25,8 @@ const bookingSchema = new mongoose.Schema({
   razorpayOrderId:{type:String, default : null},
   paymentId:{type:String, default : null},
   paymentStatus:{type: String,
-    enum: ["Pending", "Success","Refunded"],
-    default: null,}
+    enum: ["Pending", "Success","Refunded","N/A"],
+    default: "N/A",}
 });
 
 module.exports = mongoose.model("Booking", bookingSchema);

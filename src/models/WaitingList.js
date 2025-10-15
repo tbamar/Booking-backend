@@ -18,7 +18,7 @@ const waitingListSchema = new mongoose.Schema({
   razorpayOrderId:{type:String, default : "N/A"},
   paymentId:{type:String, default : "N/A"},
   paymentStatus:{type: String,
-    enum: ["Pending", "Success", "Refunded"],
+    enum: ["Pending", "Success", "Refunded", "N/A"],
     default: "N/A"}
 });
 
