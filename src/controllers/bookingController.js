@@ -372,6 +372,12 @@ exports.cancelBooking = async (req, res) => {
 
     // Helper function to process refund
     const processRefund = async (paymentId, bookingData) => {
+      if (process.env.ALLOW_REFUND !== "true") {
+    console.log(
+      `Refund skipped for ${bookingData._id || bookingData.id} because ALLOW_REFUND=false`
+    );
+    return null;
+    }
       if (!paymentId) return null;
 
       try {
