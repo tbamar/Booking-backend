@@ -13,10 +13,10 @@ const razorpaySecret = process.env.RAZORPAY_SECRET;
 
 exports.searchBooking = async (req, res) => {
   try {
-    const { name, email } = req.body;
+    const { phone, email } = req.body;
     //considering the booking which are about to come , ignoring the ones of the past so to maintain history
-    const existingBooking = await Booking.findOne({
-      phone: new RegExp(name, "i"),
+    const existingBooking = await Booking.find({
+      phone,
       email: new RegExp(email, "i"),
       date: { $gte: new Date() },
     });
@@ -28,7 +28,7 @@ exports.searchBooking = async (req, res) => {
     } else {
       return res
         .status(201)
-        .json({ message: "No booking with this name and email", booking: [] });
+        .json({ message: "No booking with this phone and email", booking: [] });
     }
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -353,12 +353,102 @@ exports.cancelBookingOld = async (req, res) => {
 exports.cancelBookingFromEmail = async (req, res) => {
   const { token, email } = req.query;
   const booking = await Booking.findById(req.params.id);
-  if (!booking || booking.cancelToken !== token)
-    return res.status(403).json({ message: "Invalid link" });
-  req.params.id = booking._id.toString();
-  req.body = { email };
-  return this.cancelBooking(req, res);
+
+  if (!booking || booking.cancelToken !== token) {
+    return res.status(403).send(htmlPage('Invalid or expired link', false));
+  }
+
+  // -------------------- STEP 1 : show confirm page --------------------
+  if (req.method === 'GET') {
+    const details = {
+      name: booking.name,
+      chamber: booking.chamber,
+      date: booking.date.toLocaleDateString('en-GB'),
+      time: booking.time,
+      id: booking._id,
+    };
+    return res.send(confirmPage(details, token, email));
+  }
+
+  // -------------------- STEP 2 : user pressed confirm --------------------
+  if (req.method === 'POST') {
+    const internalReq = {
+      params: { id: booking._id.toString() },
+      body: { email },
+    };
+    const internalRes = {
+      json: (obj) => res.send(htmlPage(obj.message || 'Cancelled', true)),
+      status: (code) => ({
+        json: (obj) => res.status(code).send(htmlPage(obj.message || 'Error', false)),
+      }),
+    };
+    await this.cancelBooking(internalReq, internalRes);
+  }
 };
+
+/* --------------------  PAGES  -------------------- */
+function confirmPage(d, token, email) {
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Confirm Cancellation</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body{font-family:Arial,Helvetica,sans-serif;background:#f5f7fa;display:flex;align-items:center;justify-content:center;height:100vh;margin:0}
+    .card{background:#fff;padding:40px 50px;border-radius:8px;box-shadow:0 8px 25px rgba(0,0,0,.1);max-width:600px;text-align:center}
+    h2{color:#e74c3c;margin-top:0}
+    .details{background:#f8f9fa;padding:15px;border-radius:5px;margin:20px 0;text-align:left}
+    .btn{display:inline-block;background:#e74c3c;color:#fff;padding:12px 24px;border:none;border-radius:4px;font-size:16px;cursor:pointer;font-weight:bold;text-decoration:none}
+    .btn:hover{background:#c0392b}
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h2>Confirm Cancellation</h2>
+    <div class="details">
+      <p><strong>Patient:</strong> ${d.name}</p>
+      <p><strong>Location:</strong> ${d.chamber}</p>
+      <p><strong>Date:</strong> ${d.date}</p>
+      <p><strong>Time:</strong> ${d.time}</p>
+      <p><strong>Booking ID:</strong> ${d.id}</p>
+    </div>
+    <p>Are you sure you want to cancel this appointment?</p>
+    <form method="POST"
+      action="/api/bookings/${d.id}/cancel/email?token=${token}&email=${email}">
+  <button type="submit" class="btn">Confirm Cancellation</button>
+</form>
+  </div>
+</body>
+</html>`;
+}
+
+function htmlPage(msg, success) {
+  const color = success ? '#2ecc71' : '#e74c3c';
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>${success ? 'Cancelled' : 'Error'}</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body{font-family:Arial,Helvetica,sans-serif;background:#f5f7fa;display:flex;align-items:center;justify-content:center;height:100vh;margin:0}
+    .card{background:#fff;padding:40px 50px;border-radius:8px;box-shadow:0 8px 25px rgba(0,0,0,.1);text-align:center;max-width:420px}
+    h2{color:${color};margin-top:0}
+    p{font-size:16px;color:#555;margin:12px 0 24px}
+    .btn{display:inline-block;background:${color};color:#fff;padding:12px 28px;border-radius:6px;text-decoration:none;font-weight:600}
+    .btn:hover{background:${success ? '#27ae60' : '#c0392b'}}
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h2>${success ? '✅ Cancelled' : '❌ Oops!'}</h2>
+    <p>${msg}</p>
+    <a href="https://www.32maxillofacial.com/home" class="btn">Back to site</a>
+  </div>
+</body>
+</html>`;
+}
 
 exports.cancelBooking = async (req, res) => {
   try {

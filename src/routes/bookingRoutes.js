@@ -9,5 +9,6 @@ router.post('/cancelOnClose', bookingController.cancelOnClose);
 router.post('/search',bookingController.searchBooking);
 router.delete('/:id/cancel', bookingController.cancelBooking);
 router.get('/:id/cancel/email', bookingController.cancelBookingFromEmail);
+router.post('/:id/cancel/email', bookingController.cancelBookingFromEmail);
 
 module.exports = router;
