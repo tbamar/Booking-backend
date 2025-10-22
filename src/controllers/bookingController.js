@@ -15,7 +15,7 @@ exports.searchBooking = async (req, res) => {
   try {
     const { phone, email } = req.body;
     //considering the booking which are about to come , ignoring the ones of the past so to maintain history
-    const existingBooking = await Booking.find({
+    const existingBooking = await Booking.findOne({
       phone,
       email: new RegExp(email, "i"),
       date: { $gte: new Date() },
