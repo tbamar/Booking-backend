@@ -21,13 +21,13 @@ exports.searchBooking = async (req, res) => {
       date: { $gte: new Date() },
     });
 
-    if (existingBooking.length > 0) {
+    if (existingBooking) {
       return res
         .status(200)
         .json({ message: "Booking found", booking: existingBooking });
     } else {
       return res
-        .status(201)
+        .status(404)
         .json({ message: "No booking with this phone and email", booking: [] });
     }
   } catch (err) {
