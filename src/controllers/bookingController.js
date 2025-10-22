@@ -21,7 +21,7 @@ exports.searchBooking = async (req, res) => {
       date: { $gte: new Date() },
     });
 
-    if (existingBooking) {
+    if (existingBooking.length > 0) {
       return res
         .status(200)
         .json({ message: "Booking found", booking: existingBooking });
