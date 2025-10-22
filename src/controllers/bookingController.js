@@ -45,7 +45,7 @@ exports.createBookingOld = async (req, res) => {
     // Cancel booking with same name and email
 
     const existingBooing = await Booking.findOne({
-      phone: new RegExp(name, "i"),
+      phone,
       email: new RegExp(email, "i"),
       date: { $gte: new Date() },
     });
